@@ -143,7 +143,7 @@ integer iisc,iiec,jjsc,jjec
 integer iisd,iied,jjsd,jjed
 
 #if defined(ACCESS_CM)
-integer, parameter :: max_fields_in=24          !20171024
+integer, parameter :: max_fields_in=22
 integer, parameter :: max_fields_out=10
 #else
 integer, parameter :: max_fields_in=20
@@ -345,9 +345,6 @@ endif
 #if defined(ACCESS_CM)
   mom_name_read(21)='co2_io'  !
   mom_name_read(22)='wnd_io'  !
-  !20171024: 2 more i2o fields due to land ice discharge into ocean
-  mom_name_read(23)='licefw' !water flux (kg/m^2/s)
-  mom_name_read(24)='liceht' !heat flux (W/m^2)
 #endif
 
   !ocn ==> ice
@@ -730,11 +727,6 @@ do jf =  1, num_fields_in
      Ice_ocean_boundary%co2(iisc:iiec,jjsc:jjec) =  vwork(iisc:iiec,jjsc:jjec)
   case('wnd_io')
      Ice_ocean_boundary%wnd(iisc:iiec,jjsc:jjec) =  vwork(iisc:iiec,jjsc:jjec)
-  !20171024: 2 more i2o fields: water and heat fluxes due to land ice discharge into ocean 
-  case('licefw')
-     Ice_ocean_boundary%licefw(iisc:iiec,jjsc:jjec) =  vwork(iisc:iiec,jjsc:jjec)
-  case('liceht')
-     Ice_ocean_boundary%liceht(iisc:iiec,jjsc:jjec) =  vwork(iisc:iiec,jjsc:jjec)
 #endif
   case DEFAULT
 ! Probable error. Leave as warning for the moment. RASF

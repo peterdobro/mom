@@ -385,11 +385,7 @@ program main
              Ice_ocean_boundary% wfiform(isc:iec,jsc:jec))
 #if defined(ACCESS)
   allocate ( Ice_ocean_boundary%co2(isc:iec,jsc:jec),               &
-             Ice_ocean_boundary%wnd(isc:iec,jsc:jec), &
-#if defined(ACCESS_CM)
-             !20171024: 2 more fields due to land ice discharge into ocean
-             Ice_ocean_boundary%licefw(isc:iec,jsc:jec), &
-             Ice_ocean_boundary%liceht(isc:iec,jsc:jec))
+             Ice_ocean_boundary%wnd(isc:iec,jsc:jec)
 #endif
 #endif
 
@@ -415,9 +411,6 @@ program main
 #if defined ACCESS_CM
   Ice_ocean_boundary%co2             = 0.0
   Ice_ocean_boundary%wnd             = 0.0
-  !20171024: 
-  Ice_ocean_boundary%licefw         = 0.0
-  Ice_ocean_boundary%liceht         = 0.0
 #endif
 
   call external_coupler_sbc_init(Ocean_sfc%domain, dt_cpld, Run_len)

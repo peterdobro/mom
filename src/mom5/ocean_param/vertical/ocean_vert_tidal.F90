@@ -844,14 +844,14 @@ contains
        enddo
     enddo
     !!!temporary check:
-    do i = isd, ied
-       if (i .eq. 1) then
-         write(100 + mpp_pe(),*)'XXXXXXdhb: Checking bg_diff: ' 
-         do j = jsd, jed
-           write(100 + mpp_pe(),'(i3,4x,2e14.6)') j, Grd%yt(i,j), bg_diff(i,j)
-         enddo
-       endif
-    enddo
+    !do i = isd, ied
+    !   if (i .eq. 1) then
+    !     write(100 + mpp_pe(),*)'XXXXXXdhb: Checking bg_diff: ' 
+    !     do j = jsd, jed
+    !       write(100 + mpp_pe(),'(i3,4x,2e14.6)') j, Grd%yt(i,j), bg_diff(i,j)
+    !     enddo
+    !   endif
+    !enddo
     !!!
 !---------------------------------------------------------------------------------------
 
