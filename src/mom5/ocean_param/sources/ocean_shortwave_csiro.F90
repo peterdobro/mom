@@ -143,7 +143,7 @@ logical :: enforce_sw_frac        = .true.
 logical :: sw_pen_fixed_depths    = .false. 
 
 real :: depth_default = 20.0  ! (m) default  efolding length
-real :: zmax_pen      = 120.0 ! maximum depth (m) of solar penetration. 
+real :: zmax_pen      = 1e6   ! maximum depth (m) of solar penetration. 
                               ! below, penetration is exponentially small and so is ignored
 real :: sw_frac_top   = 0.0   ! set to 1.0 if do not have shortwave radiation inside of T_prog(index_temp)%stf.
 
