@@ -422,6 +422,9 @@ module ocean_types_mod
      real, dimension(isd:ied,jsd:jed,nk)   :: pressure_at_depth    ! hydrostatic pressure (including patm)
      real, dimension(isd:ied,jsd:jed,nk)   :: drhodT               ! partial rho wrt theta (kg/(m^3 C)
      real, dimension(isd:ied,jsd:jed,nk)   :: drhodS               ! partial rho wrt salinity (kg/(m^3 psu)
+     real, dimension(isd:ied,jsd:jed,nk)   :: dpotrhodT            ! partial potrho wrt theta (kg/(m^3 C)
+     real, dimension(isd:ied,jsd:jed,nk)   :: dpotrhodS            ! partial potrho wrt salinity (kg/(m^3 psu)
+     real, dimension(isd:ied,jsd:jed,nk)   :: dpotrhodP            ! partial potrho wrt pressure (kg/(m^3 psu)
      real, dimension(isd:ied,jsd:jed,nk)   :: drhodP               ! partial rho wrt pressure (kg/(m^3 Pa)
      real, dimension(isd:ied,jsd:jed,nk)   :: drhodz_wt            ! d(neutral density)/dz (kg/m^4) at W-point
      real, dimension(isd:ied,jsd:jed,nk)   :: drhodz_zt            ! d(neutral density)/dz (kg/m^4) at T-point
@@ -958,6 +961,9 @@ module ocean_types_mod
      real, _ALLOCATABLE, dimension(:,:,:)   :: pressure_at_depth _NULL ! hydrostatic pressure (including patm)
      real, _ALLOCATABLE, dimension(:,:,:)   :: drhodT            _NULL ! partial rho wrt theta (kg/(m^3 C)
      real, _ALLOCATABLE, dimension(:,:,:)   :: drhodS            _NULL ! partial rho wrt salinity (kg/(m3 psu)
+     real, _ALLOCATABLE, dimension(:,:,:)   :: dpotrhodT         _NULL ! partial potrho wrt theta (kg/(m^3 C)
+     real, _ALLOCATABLE, dimension(:,:,:)   :: dpotrhodS         _NULL ! partial potrho wrt salinity (kg/(m3 psu)
+     real, _ALLOCATABLE, dimension(:,:,:)   :: dpotrhodP         _NULL ! partial potrho wrt pressure (kg/(m3 psu)
      real, _ALLOCATABLE, dimension(:,:,:)   :: drhodP            _NULL ! partial rho wrt pressure (kg/(m3 Pa)
      real, _ALLOCATABLE, dimension(:,:,:)   :: drhodz_wt         _NULL ! d(neutral rho)/dz (kg/m^4) at W-point
      real, _ALLOCATABLE, dimension(:,:,:)   :: drhodz_zt         _NULL ! d(neutral rho)/dz (kg/m^4) at T-point

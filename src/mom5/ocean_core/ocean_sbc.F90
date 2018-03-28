@@ -549,6 +549,9 @@ integer :: id_wavlen          =-1
 integer :: id_net_sfc_heating       =-1
 integer :: id_total_net_sfc_heating =-1
 
+integer :: id_net_sfc_workq       =-1
+integer :: id_net_sfc_workemp     =-1
+
 integer :: id_salt_flux_ice      =-1
 integer :: id_total_salt_flux_ice=-1
 integer :: id_temp_runoff_eff    =-1
@@ -571,6 +574,10 @@ integer :: id_evap_heat          =-1
 integer :: id_fprec          =-1
 integer :: id_lprec          =-1
 integer :: id_river          =-1
+integer :: id_alphasfc       =-1
+integer :: id_betasfc        =-1
+integer :: id_alphasfc2      =-1
+integer :: id_betasfc2       =-1
 integer :: id_calving        =-1
 integer :: id_ideal_calving  =-1
 integer :: id_runoff         =-1
@@ -712,6 +719,8 @@ real, dimension(isd:ied,jsd:jed) :: ideal_calving ! mass flux of calving land ic
 real, dimension(isd:ied,jsd:jed) :: rhosfc_inv    ! surface ocean specific volume (m^3/kg) #
 real, dimension(isd:ied,jsd:jed) :: alphasfc      ! surface thermal expansion coefficient (1/deg C) 
 real, dimension(isd:ied,jsd:jed) :: betasfc       ! surface saline contraction coefficient (1/ppt) 
+real, dimension(isd:ied,jsd:jed) :: alphasfc2     ! potrho surface thermal expansion coefficient (1/deg C) 
+real, dimension(isd:ied,jsd:jed) :: betasfc2      ! potrho surface saline contraction coefficient (1/ppt)
 
 #else
 
@@ -727,6 +736,8 @@ real, allocatable, dimension(:,:) :: ideal_calving ! mass flux of calving land i
 real, allocatable, dimension(:,:) :: rhosfc_inv    ! surface ocean specific volume (m^3/kg) 
 real, allocatable, dimension(:,:) :: alphasfc      ! surface thermal expansion coefficient (1/deg C) 
 real, allocatable, dimension(:,:) :: betasfc       ! surface saline contraction coefficient (1/ppt) 
+real, allocatable, dimension(:,:) :: alphasfc2     ! potrho surface thermal expansion coefficient (1/deg C) 
+real, allocatable, dimension(:,:) :: betasfc2      ! potrho surface saline contraction coefficient (1/ppt)
 
 #endif
 #if defined(ACCESS)
@@ -934,6 +945,8 @@ subroutine ocean_sbc_init(Grid, Domain, Time, T_prog, T_diag, &
   allocate(rhosfc_inv(isd:ied,jsd:jed))
   allocate(alphasfc(isd:ied,jsd:jed))
   allocate(betasfc(isd:ied,jsd:jed))
+  allocate(alphasfc2(isd:ied,jsd:jed))
+  allocate(betasfc2(isd:ied,jsd:jed))
 #endif
   data              = 0.0
   pme_taum1         = 0.0
@@ -947,6 +960,8 @@ subroutine ocean_sbc_init(Grid, Domain, Time, T_prog, T_diag, &
   rhosfc_inv        = 0.0
   alphasfc          = 0.0
   betasfc           = 0.0
+  alphasfc2         = 0.0
+  betasfc2          = 0.0
 
   Dom => Domain
   Grd => Grid
@@ -1656,6 +1671,22 @@ subroutine ocean_sbc_diag_init(Time, Dens, T_prog)
        Time%model_time, 'mass flux of river (runoff + calving) entering ocean', &
        '(kg/m^3)*(m/sec)', missing_value=missing_value,range=(/-1e6,1e6/))
 
+  id_alphasfc = register_diag_field('ocean_model','alphasfc', Grd%tracer_axes(1:2),&
+       Time%model_time, 'Thermal expansion coeff at surface (-1/rho drho/dT) ',    &
+       '1/(deg C)', missing_value=missing_value,range=(/-1e6,1e6/))
+
+  id_betasfc = register_diag_field('ocean_model','betasfc', Grd%tracer_axes(1:2),&
+       Time%model_time, 'Saline contraction coeff at surface (1/rho drho/dS) ',  &
+       '1/psu', missing_value=missing_value,range=(/-1e6,1e6/))
+
+  id_alphasfc2 = register_diag_field('ocean_model','alphasfc2', Grd%tracer_axes(1:2),      &
+       Time%model_time, 'Potrho thermal expansion coeff at surface (-1/potrho dpotrho/dT)',&
+       '1/(deg C)', missing_value=missing_value,range=(/-1e6,1e6/))
+
+  id_betasfc2 = register_diag_field('ocean_model','betasfc2', Grd%tracer_axes(1:2),        &
+       Time%model_time, 'Potrho saline contraction coeff at surface (1/potrho dpotrho/dS)',&
+       '1/psu', missing_value=missing_value,range=(/-1e6,1e6/))
+
   id_runoff = register_diag_field('ocean_model','runoff', Grd%tracer_axes(1:2),&
        Time%model_time, 'mass flux of liquid river runoff entering ocean ',    &
        '(kg/m^3)*(m/sec)', missing_value=missing_value,range=(/-1e6,1e6/),     &
@@ -1680,6 +1711,12 @@ subroutine ocean_sbc_diag_init(Time, Dens, T_prog)
        Time%model_time, 'mass flux of precip-evap+river via sbc (liquid, frozen, evaporation)',&
        '(kg/m^3)*(m/sec)', missing_value=missing_value,range=(/-1e6,1e6/),                     &
        standard_name='water_flux_into_sea_water')
+
+  id_net_sfc_workemp = register_diag_field('ocean_model','net_sfc_workEmP',                        &
+       Grd%tracer_axes(1:2),                                                               &
+       Time%model_time, 'pme_river*g*beta2*So/rho0, beta uses pot_rho rather than neut',    &
+       'm^2/s^-3' ,                                                                        &
+        missing_value=missing_value,range=(/-1.e4,1.e4/))
 
   id_pme_sbc = register_diag_field('ocean_model','pme_sbc', Grd%tracer_axes(1:2),&
        Time%model_time, 'precip-evap via sbc (liquid, frozen, evaporation)',     &
@@ -2179,6 +2216,11 @@ subroutine ocean_sbc_diag_init(Time, Dens, T_prog)
               Grd%tracer_axes(1:2),                                                               &
               Time%model_time, 'surface ocean heat flux coming through coupler and mass transfer',&
               'Watts/m^2' ,                                                                       &
+              missing_value=missing_value,range=(/-1.e4,1.e4/))
+         id_net_sfc_workq = register_diag_field('ocean_model','net_sfc_workq',                        &
+              Grd%tracer_axes(1:2),                                                               &
+              Time%model_time, 'net_sfc_heat*g*alpha2/Cp/rho0, alpha uses pot_rho rather than neut',    &
+              'm^2/s^-3' ,                                                                        &
               missing_value=missing_value,range=(/-1.e4,1.e4/))
          id_stf_runoff(n) = register_diag_field('ocean_model','sfc_hflux_from_runoff',&
               Grd%tracer_axes(1:2),                                                   &
@@ -3011,7 +3053,7 @@ subroutine get_ocean_sbc(Time, Ice_ocean_boundary, Thickness, Dens, Ext_mode, T_
   real    :: stokes_factor
   integer :: tau, taup1, n, i, j, k, ii, jj
   integer :: day, sec 
-
+  real    :: potrhosfc_inv
 
   integer :: stdoutunit 
   stdoutunit=stdout() 
@@ -3035,6 +3077,10 @@ subroutine get_ocean_sbc(Time, Ice_ocean_boundary, Thickness, Dens, Ext_mode, T_
         rhosfc_inv(i,j) = Grd%tmask(i,j,1)/(epsln+Dens%rho(i,j,1,tau))
         alphasfc(i,j)   = -rhosfc_inv(i,j)*Dens%drhodT(i,j,1) 
         betasfc(i,j)    =  rhosfc_inv(i,j)*Dens%drhodS(i,j,1) 
+        
+        potrhosfc_inv    = Grd%tmask(i,j,1)/(epsln+Dens%potrho(i,j,1))
+        alphasfc2(i,j)   = -potrhosfc_inv*Dens%dpotrhodT(i,j,1) 
+        betasfc2(i,j)    =  potrhosfc_inv*Dens%dpotrhodS(i,j,1)
      enddo
   enddo
 
@@ -3857,9 +3903,10 @@ subroutine get_ocean_sbc(Time, Ice_ocean_boundary, Thickness, Dens, Ext_mode, T_
 
   !--------send diagnostics------------------- 
   !
-  call ocean_sbc_diag (Time, Velocity, Thickness, Dens, T_prog, Ice_ocean_boundary,   &
-                      pme, runoff, calving, river, melt, liquid_precip, frozen_precip,&
-                      evaporation, sensible, longwave, latent, swflx, swflx_vis)
+  call ocean_sbc_diag (Time, Velocity, Thickness, Dens, T_prog, Ice_ocean_boundary,        &
+                      pme, runoff, calving, river, alphasfc, betasfc, alphasfc2, betasfc2, &
+                      melt, liquid_precip, frozen_precip, evaporation, sensible, longwave, &
+                      latent, swflx, swflx_vis)
 
 #if defined(ACCESS)
   do j = jsc_bnd,jec_bnd
@@ -4548,9 +4595,10 @@ end subroutine flux_adjust
 ! Compute and send diagnostics from get_ocean_sbc. 
 ! </DESCRIPTION>
 !
-subroutine ocean_sbc_diag(Time, Velocity, Thickness, Dens, T_prog, Ice_ocean_boundary, &
-                      pme, runoff, calving, river, melt, liquid_precip, frozen_precip, &
-                      evaporation, sensible, longwave, latent, swflx, swflx_vis)
+subroutine ocean_sbc_diag(Time, Velocity, Thickness, Dens, T_prog, Ice_ocean_boundary,     &
+                      pme, runoff, calving, river, alphasfc, betasfc, alphasfc2, betasfc2, &
+                      melt, liquid_precip,  frozen_precip, evaporation, sensible, longwave,&
+                      latent, swflx, swflx_vis)
 
   type(ocean_time_type),          intent(in) :: Time 
   type(ocean_velocity_type),      intent(in) :: Velocity
@@ -4562,6 +4610,10 @@ subroutine ocean_sbc_diag(Time, Velocity, Thickness, Dens, T_prog, Ice_ocean_bou
   real, dimension(isd:,jsd:),     intent(in) :: runoff
   real, dimension(isd:,jsd:),     intent(in) :: calving 
   real, dimension(isd:,jsd:),     intent(in) :: river
+  real, dimension(isd:,jsd:),     intent(in) :: alphasfc
+  real, dimension(isd:,jsd:),     intent(in) :: betasfc
+  real, dimension(isd:,jsd:),     intent(in) :: alphasfc2
+  real, dimension(isd:,jsd:),     intent(in) :: betasfc2
   real, dimension(isd:,jsd:),     intent(in) :: melt
   real, dimension(isd:,jsd:),     intent(in) :: liquid_precip
   real, dimension(isd:,jsd:),     intent(in) :: frozen_precip
@@ -4917,6 +4969,23 @@ subroutine ocean_sbc_diag(Time, Velocity, Thickness, Dens, T_prog, Ice_ocean_bou
       enddo
       call diagnose_2d(Time, Grd, id_net_sfc_heating, wrk1_2d(:,:))
   endif
+    
+  ! net_surface_heating*g*alphasfc2/rho0/Cp  
+  if(id_net_sfc_workq > 0) then 
+      wrk1_2d(:,:) = 0.0
+      do j=jsc,jec
+         do i=isc,iec
+            wrk1_2d(i,j) =   grav/rho0/cp_ocean*alphasfc2(i,j)*                                           &
+                   T_prog(index_temp)%conversion*(                                                        &
+                   T_prog(index_temp)%stf(i,j)                                                            &
+                 + T_prog(index_temp)%runoff_tracer_flux(i,j)                                             &
+                 + T_prog(index_temp)%calving_tracer_flux(i,j)                                            &
+                 + (frozen_precip(i,j)+liquid_precip(i,j)+evaporation(i,j))*T_prog(index_temp)%tpme(i,j) )
+         enddo
+      enddo
+      call diagnose_2d(Time, Grd, id_net_sfc_workq, wrk1_2d(:,:))
+  endif
+
   ! area integrated total net heat flux 
   if(id_total_net_sfc_heating > 0) then 
       wrk1_2d(:,:) = 0.0
@@ -5149,6 +5218,13 @@ subroutine ocean_sbc_diag(Time, Velocity, Thickness, Dens, T_prog, Ice_ocean_bou
   if (id_pme_river > 0) then
      call diagnose_2d(Time, Grd, id_pme_river, pme(:,:) + river(:,:))
   endif
+    
+  !ape work from E-P+R: pme_river*g*betasfc2*So/rho0  
+  if(id_net_sfc_workemp > 0) then
+     call diagnose_2d(Time, Grd, id_net_sfc_workemp,        &
+        grav*salinity_ref/rho0*betasfc2(:,:)*(pme(:,:) + river(:,:)) )
+  endif
+
   ! total mass flux from pme+river (kg/sec)
   if(id_total_ocean_pme_river > 0) then 
      call diagnose_sum(Time, Grd, Dom,id_total_ocean_pme_river, pme(:,:) + river(:,:), 1e-15)
@@ -5300,6 +5376,16 @@ subroutine ocean_sbc_diag(Time, Velocity, Thickness, Dens, T_prog, Ice_ocean_bou
 #endif
 #endif
 
+  ! output saline contraction coeff (1/rho drho/dS) at the ocean surface (1/psu)
+  call diagnose_2d(Time, Grd, id_betasfc, betasfc(:,:))
+  ! output thermal expansion coeff (-1/rho drho/dT) at the ocean surface (1/(deg C))
+  call diagnose_2d(Time, Grd, id_alphasfc, alphasfc(:,:))
+  ! output saline contraction coeff (1/potrho dpotrho/dS) at the ocean surface (1/psu)
+  call diagnose_2d(Time, Grd, id_betasfc2, betasfc2(:,:))
+  ! output thermal expansion coeff (-1/potrho dpotrho/dT) at the ocean surface (1/(deg C))
+  call diagnose_2d(Time, Grd, id_alphasfc2, alphasfc2(:,:))
+  ! river (mass flux of land water (liquid+solid) ) entering ocean (kg/m^3)*(m/s)
+  call diagnose_2d(Time, Grd, id_river, river(:,:))
 
   ! river (mass flux of land water (liquid+solid) ) entering ocean (kg/m^3)*(m/s)
   call diagnose_2d(Time, Grd, id_river, river(:,:))

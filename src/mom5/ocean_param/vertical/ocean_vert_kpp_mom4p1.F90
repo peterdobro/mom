@@ -449,6 +449,7 @@ integer, dimension(:), allocatable :: id_wbot(:)
 logical  :: used
 integer  :: id_diff_cbt_kpp_t =-1
 integer  :: id_diff_cbt_kpp_s =-1
+integer  :: id_diff_cbt_conv  =-1
 integer  :: id_hblt           =-1
 integer  :: id_ws             =-1
 !dhb599:
@@ -456,6 +457,7 @@ integer  :: id_langmuirfactor =-1
 !
 
 integer  :: id_neut_rho_kpp_nloc          =-1
+integer  :: id_pot_rho_kpp_nloc           =-1
 integer  :: id_wdian_rho_kpp_nloc         =-1
 integer  :: id_tform_rho_kpp_nloc         =-1
 integer  :: id_neut_rho_kpp_nloc_on_nrho  =-1
@@ -912,6 +914,10 @@ ierr = check_nml_error(io_status,'ocean_vert_kpp_mom4p1_nml')
        Grd%tracer_axes(1:3), Time%model_time, 'vert diffusivity from kpp for salt',&
        'm^2/sec', missing_value = missing_value, range=(/-1.e5,1.e5/))
 
+  id_diff_cbt_conv = register_diag_field('ocean_model','diff_cbt_conv',             &
+       Grd%tracer_axes(1:3),Time%model_time, 'vert diffusivity from kpp convection',&
+       'm^2/sec', missing_value = missing_value, range=(/-1.e5,1.e5/))
+
   id_hblt = register_diag_field('ocean_model','hblt',Grd%tracer_axes(1:2), &
        Time%model_time, 'T-cell boundary layer depth from KPP', 'm',       &
        missing_value = missing_value, range=(/-1.e5,1.e6/),                &
@@ -968,7 +974,7 @@ end subroutine ocean_vert_kpp_mom4p1_init
 !
 subroutine vert_mix_kpp_mom4p1 (aidif, Time, Thickness, Velocity, T_prog, T_diag, Dens, &
 !dhb599:                                swflx, sw_frac_zt, pme, river, visc_cbu, diff_cbt, hblt_depth, do_wave)
-                                swflx, sw_frac_zt, pme, river, visc_cbu, diff_cbt, hblt_depth, Ice_ocean_boundary, do_wave)
+                                swflx, sw_frac_zt, pme, river, visc_cbu, diff_cbt, diff_cbt_conv, hblt_depth, Ice_ocean_boundary, do_wave)
 
   real,                            intent(in)    :: aidif
   type(ocean_time_type),           intent(in)    :: Time
@@ -984,6 +990,7 @@ subroutine vert_mix_kpp_mom4p1 (aidif, Time, Thickness, Velocity, T_prog, T_diag
   real, dimension(isd:,jsd:),      intent(inout) :: hblt_depth
   real, dimension(isd:,jsd:,:),    intent(inout) :: visc_cbu
   real, dimension(isd:,jsd:,:,:),  intent(inout) :: diff_cbt
+  real, dimension(isd:,jsd:,:),    intent(inout) :: diff_cbt_conv
 !dhb599:
   type(ice_ocean_boundary_type),   intent(in)	 :: Ice_ocean_boundary
 !
@@ -1207,7 +1214,7 @@ subroutine vert_mix_kpp_mom4p1 (aidif, Time, Thickness, Velocity, T_prog, T_diag
 !     internal wave activity, static instability, and local shear 
 !     instability.
 !-----------------------------------------------------------------------
-      call ri_iwmix(visc_cbu, diff_cbt)
+      call ri_iwmix(visc_cbu, diff_cbt, diff_cbt_conv)
 
 
 !-----------------------------------------------------------------------
@@ -1548,6 +1555,7 @@ subroutine vert_mix_kpp_mom4p1 (aidif, Time, Thickness, Velocity, T_prog, T_diag
 
        call diagnose_3d(Time, Grd, id_diff_cbt_kpp_t, diff_cbt(:,:,:,1))
        call diagnose_3d(Time, Grd, id_diff_cbt_kpp_s, diff_cbt(:,:,:,2))
+       call diagnose_3d(Time, Grd, id_diff_cbt_conv,  diff_cbt_conv(:,:,:))
        call diagnose_2d(Time, Grd, id_hblt, hblt(:,:))
 !dhb599:
        call diagnose_2d(Time, Grd, id_langmuirfactor, langmuirfactor(:,:)) 
@@ -2350,13 +2358,14 @@ end function cvmix_kpp_efactor_model
 !     outputs:
 !
 !      visc_cbu = viscosity coefficient at bottom of "u" cells (m**2/s)         <BR/>   
-!      diff_cbt = diffusion coefficient at bottom of "t" cells (m**2/s)         <BR/>  
+!      diff_cbt = diffusion coefficient at bottom of "t" cells (m**2/s)         <BR/>  diff_cbt
 ! </DESCRIPTION>
 !
-subroutine ri_iwmix(visc_cbu, diff_cbt)
+subroutine ri_iwmix(visc_cbu, diff_cbt, diff_cbt_conv)
 
   real, dimension(isd:,jsd:,:),   intent(inout) :: visc_cbu
   real, dimension(isd:,jsd:,:,:), intent(inout) :: diff_cbt
+  real, dimension(isd:,jsd:,:),   intent(inout) :: diff_cbt_conv
   
   real, parameter :: Riinfty = 0.8  ! local Richardson Number limit for shear instability
   real            :: Rigg, ratio, frit, fcont, friu, fconu
@@ -2402,6 +2411,7 @@ subroutine ri_iwmix(visc_cbu, diff_cbt)
             visc_cbu(i,j,k)       = visc_cbu_iw + fconu * visc_con_limit   
             diff_cbt(i,j,k,1)     = diff_cbt_iw + fcont * diff_con_limit
             diff_cbt(i,j,k,2)     = diff_cbt_iw + fcont * diff_con_limit
+            diff_cbt_conv(i,j,k)  =               fcont * diff_con_limit
 
 !-----------------------------------------------------------------------
 !           add contribution due to shear instability
@@ -2450,6 +2460,7 @@ subroutine ri_iwmix(visc_cbu, diff_cbt)
             visc_cbu(i,j,k)       = visc_cbu_iw + fcont * visc_con_limit   
             diff_cbt(i,j,k,1)     = diff_cbt_iw + fcont * diff_con_limit
             diff_cbt(i,j,k,2)     = diff_cbt_iw + fcont * diff_con_limit
+            diff_cbt_conv(i,j,k)  =               fcont * diff_con_limit
 
 !-----------------------------------------------------------------------
 !           add contribution due to shear instability
@@ -3052,6 +3063,13 @@ subroutine watermass_diag_init(Time, Dens)
     '(kg/m^3)/sec',missing_value=missing_value, range=(/-1e10,1e10/))
   if(id_neut_rho_kpp_nloc > 0) compute_watermass_diag=.true.
 
+  id_pot_rho_kpp_nloc = register_diag_field ('ocean_model',     &
+    'pot_rho_kpp_nloc',                                         &
+    Grd%tracer_axes(1:3), Time%model_time,                      &
+    'depth referenced potrho tendency due to KPP nonlocal term',&
+    '(kg/m^3)/sec',missing_value=missing_value, range=(/-1e10,1e10/))
+  if(id_pot_rho_kpp_nloc > 0) compute_watermass_diag=.true.
+
   id_wdian_rho_kpp_nloc = register_diag_field ('ocean_model',    &
     'wdian_rho_kpp_nloc', Grd%tracer_axes(1:3), Time%model_time, &
     'dianeutral mass transport due to KPP nonlocal term',        &
@@ -3207,6 +3225,21 @@ subroutine watermass_diag(Time, T_prog, Dens)
   if(.not. compute_watermass_diag) return 
 
   tau = Time%tau
+
+  if(id_pot_rho_kpp_nloc > 0) then 
+     wrk1(:,:,:) = 0.0
+     wrk2(:,:,:) = 0.0
+     do k=1,nk
+        do j=jsc,jec
+           do i=isc,iec
+              wrk1(i,j,k) = Dens%dpotrhodT(i,j,k)*T_prog(index_temp)%wrk1(i,j,k) &
+                           +Dens%dpotrhodS(i,j,k)*T_prog(index_salt)%wrk1(i,j,k)
+              wrk2(i,j,k) = wrk1(i,j,k)*Dens%rho_dztr_tau(i,j,k)
+           enddo
+        enddo
+     enddo
+     call diagnose_3d(Time, Grd, id_pot_rho_kpp_nloc, wrk2(:,:,:))
+  endif
 
   ! rho diagnostics = sum of temp and salt contributions  
   wrk1(:,:,:) = 0.0

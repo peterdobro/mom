@@ -79,6 +79,7 @@ integer :: id_sw_heat       =-1
 integer :: id_irradiance    =-1
 
 integer :: id_neut_rho_sw          =-1
+integer :: id_pot_rho_sw           =-1
 integer :: id_wdian_rho_sw         =-1
 integer :: id_tform_rho_sw         =-1
 integer :: id_neut_rho_sw_on_nrho  =-1
@@ -392,6 +393,12 @@ subroutine watermass_diag_init(Time, Dens)
     '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
   if(id_neut_rho_sw > 0) compute_watermass_diag = .true. 
 
+  id_pot_rho_sw = register_diag_field ('ocean_model', 'pot_rho_sw',&
+    Grd%tracer_axes(1:3), Time%model_time,                         &
+    'update of depth ref potrho from shortwave penetration',       &
+    '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
+  if(id_pot_rho_sw > 0) compute_watermass_diag = .true.
+
   id_neut_rho_sw_on_nrho = register_diag_field ('ocean_model',                            &
    'neut_rho_sw_on_nrho', Dens%neutralrho_axes(1:3), Time%model_time,                     &
    'update of locally ref potrho from shortwave penetration binned to neutral rho layers',&
@@ -507,6 +514,20 @@ subroutine watermass_diag(Time, Temp, Dens)
       enddo
       call diagnose_2d(Time, Grd, id_eta_tend_sw_pen, eta_tend(:,:))
       call diagnose_sum(Time, Grd, Dom, id_eta_tend_sw_pen_glob, eta_tend, cellarea_r)
+  endif
+
+  if(id_pot_rho_sw > 0) then 
+     wrk1(:,:,:) = 0.0
+     wrk2(:,:,:) = 0.0
+     do k=1,nk
+        do j=jsc,jec
+           do i=isc,iec
+              wrk1(i,j,k) = Grd%tmask(i,j,k)*Dens%dpotrhodT(i,j,k)*cp_r*Temp%wrk1(i,j,k)
+              wrk2(i,j,k) = wrk1(i,j,k)*Dens%rho_dztr_tau(i,j,k)
+           enddo
+        enddo
+     enddo
+     call diagnose_3d(Time, Grd, id_pot_rho_sw, wrk2(:,:,:))
   endif
 
 end subroutine watermass_diag

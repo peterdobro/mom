@@ -341,6 +341,7 @@ integer, allocatable, dimension(:) :: id_diag_total
 integer, allocatable, dimension(:) :: id_tmask_limit
 
 integer  :: id_neut_rho_tendency 
+integer  :: id_pot_rho_tendency
 integer  :: id_neut_rho_tendency_on_nrho
 integer  :: id_wdian_rho_tendency 
 integer  :: id_wdian_rho_tendency_on_nrho 
@@ -362,6 +363,7 @@ integer  :: id_tform_salt_tendency
 integer  :: id_tform_salt_tendency_on_nrho
 
 integer  :: id_neut_rho_smooth
+integer  :: id_pot_rho_smooth
 integer  :: id_neut_rho_smooth_on_nrho
 integer  :: id_wdian_rho_smooth
 integer  :: id_wdian_rho_smooth_on_nrho
@@ -386,6 +388,7 @@ integer  :: id_tform_salt_smooth_on_nrho
 
 
 integer  :: id_neut_rho_pme
+integer  :: id_pot_rho_pme
 integer  :: id_wdian_rho_pme
 integer  :: id_tform_rho_pme
 integer  :: id_neut_rho_pme_on_nrho
@@ -436,6 +439,7 @@ integer  :: idtform_salt_pbl_pme_pr
 integer  :: idtform_salt_pbl_pme_pr_on_nrho
 
 integer  :: id_neut_rho_frazil
+integer  :: id_pot_rho_frazil
 integer  :: id_wdian_rho_frazil
 integer  :: id_tform_rho_frazil
 integer  :: id_neut_rho_frazil_on_nrho
@@ -3086,11 +3090,17 @@ subroutine ocean_tracer_diagnostics_init(Time, Dens, T_diag, ver_coordinate_clas
      if (T_diag(n)%name == 'frazil') index_frazil = n
   enddo
 
-  ! time tendency 
+  ! time tendency for locally referenced potential density
   id_neut_rho_tendency = register_diag_field ('ocean_model','neut_rho_tendency',      &  
     Grd%tracer_axes(1:3), Time%model_time,'total time tendency of locally ref potrho',&
     '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
   if(id_neut_rho_tendency > 0) compute_watermass_diag=.true.
+
+  ! time tendency for potential density 
+  id_pot_rho_tendency = register_diag_field ('ocean_model','pot_rho_tendency',      &  
+    Grd%tracer_axes(1:3), Time%model_time,'total time tendency of depth ref potrho',&
+    '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
+  if(id_pot_rho_tendency > 0) compute_watermass_diag=.true.
 
   id_neut_rho_tendency_on_nrho = register_diag_field ('ocean_model',         &
     'neut_rho_tendency_on_nrho', Dens%neutralrho_axes(1:3), Time%model_time, &
@@ -3198,12 +3208,19 @@ subroutine ocean_tracer_diagnostics_init(Time, Dens, T_diag, ver_coordinate_clas
 
 
 
-  ! smoothing operator 
+  ! smoothing operator for locally referenced potential density
   id_neut_rho_smooth = register_diag_field ('ocean_model','neut_rho_smooth',&  
     Grd%tracer_axes(1:3), Time%model_time,                                  &
     'time tendency of local ref potrho from eta/pbot smoother',             &
     '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
   if(id_neut_rho_smooth > 0) compute_watermass_diag=.true.
+
+  ! smoothing operator for potential density 
+  id_pot_rho_smooth = register_diag_field ('ocean_model','pot_rho_smooth',&  
+    Grd%tracer_axes(1:3), Time%model_time,                                &
+    'time tendency of depth ref potrho from eta/pbot smoother',           &
+    '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
+  if(id_pot_rho_smooth > 0) compute_watermass_diag=.true.
 
   id_neut_rho_smooth_on_nrho = register_diag_field ('ocean_model',                      &
    'neut_rho_smooth_on_nrho', Dens%neutralrho_axes(1:3), Time%model_time,               &
@@ -3325,12 +3342,19 @@ subroutine ocean_tracer_diagnostics_init(Time, Dens, T_diag, ver_coordinate_clas
 
 
 
-  ! contributions from frazil formation 
+  ! contributions from frazil formation to local referenced potential density
   id_neut_rho_frazil = register_diag_field ('ocean_model', 'neut_rho_frazil',&
     Grd%tracer_axes(1:3), Time%model_time,                                   &
     'update of local ref potrho from frazil formation',                      &
     '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
   if(id_neut_rho_frazil > 0) compute_watermass_diag=.true.
+
+  ! contributions from frazil formation to potential density  
+  id_pot_rho_frazil = register_diag_field ('ocean_model', 'pot_rho_frazil',&
+    Grd%tracer_axes(1:3), Time%model_time,                                 &
+    'update of depth ref potrho from frazil formation',                    &
+    '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
+  if(id_pot_rho_frazil > 0) compute_watermass_diag=.true.
 
   id_neut_rho_frazil_on_nrho = register_diag_field ('ocean_model',                  &
     'neut_rho_frazil_on_nrho', Dens%neutralrho_axes(1:3), Time%model_time,          &
@@ -3379,6 +3403,11 @@ subroutine ocean_tracer_diagnostics_init(Time, Dens, T_diag, ver_coordinate_clas
     Grd%tracer_axes(1:3), Time%model_time,'time tendency of local ref potrho from pme',&
     '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
   if(id_neut_rho_pme > 0) compute_watermass_diag=.true.
+
+  id_pot_rho_pme = register_diag_field ('ocean_model','pot_rho_pme',                   & 
+    Grd%tracer_axes(1:3), Time%model_time,'time tendency of depth ref potrho from pme',&
+    '(kg/m^3)/sec', missing_value=missing_value, range=(/-1.e20,1.e20/))
+  if(id_pot_rho_pme > 0) compute_watermass_diag=.true.
 
   id_neut_rho_pme_on_nrho = register_diag_field ('ocean_model',               &
     'neut_rho_pme_on_nrho', Dens%neutralrho_axes(1:3), Time%model_time,       &
@@ -4066,6 +4095,33 @@ subroutine watermass_diag(Time, T_prog, T_diag, Dens, Thickness, pme)
   taup1 = Time%taup1
 
 
+  if (id_pot_rho_tendency  > 0 ) then
+
+      wrk1(:,:,:) = 0.0
+      wrk2(:,:,:) = 0.0
+      wrk3(:,:,:) = 0.0
+      wrk4(:,:,:) = 0.0
+
+      do k=1,nk
+         do j=jsc,jec
+            do i=isc,iec
+               wrk1(i,j,k) = Dens%dpotrhodT(i,j,k)*                                       &
+                    (T_prog(index_temp)%field(i,j,k,taup1)*Thickness%rho_dzt(i,j,k,taup1) &
+                    -T_prog(index_temp)%field(i,j,k,taum1)*Thickness%rho_dzt(i,j,k,taum1))
+               wrk2(i,j,k) = Dens%dpotrhodS(i,j,k)*                                       &
+                    (T_prog(index_salt)%field(i,j,k,taup1)*Thickness%rho_dzt(i,j,k,taup1) &
+                    -T_prog(index_salt)%field(i,j,k,taum1)*Thickness%rho_dzt(i,j,k,taum1))    
+               wrk3(i,j,k) = Grd%tmask(i,j,k)*dtimer*(wrk1(i,j,k)+wrk2(i,j,k))
+               wrk4(i,j,k) = wrk3(i,j,k)*Dens%rho_dztr_tau(i,j,k)
+            enddo
+         enddo
+      enddo
+
+      call diagnose_3d(Time, Grd, id_pot_rho_tendency, wrk4(:,:,:))
+
+  endif
+
+
   ! full time tendency 
   if (id_neut_rho_tendency  > 0 .or. id_neut_rho_tendency_on_nrho  > 0 .or.  &
       id_wdian_rho_tendency > 0 .or. id_wdian_rho_tendency_on_nrho > 0 .or.  &
@@ -4241,6 +4297,42 @@ subroutine watermass_diag(Time, T_prog, T_diag, Dens, Thickness, pme)
 
   endif
 
+  ! effects from smooth eta or pbot on potential density 
+  if (id_pot_rho_smooth  > 0) then
+      wrk1(:,:,:) = 0.0
+      wrk2(:,:,:) = 0.0
+      wrk3(:,:,:) = 0.0
+      wrk4(:,:,:) = 0.0
+      
+      k=1
+      do j=jsc,jec
+         do i=isc,iec
+            wrk1(i,j,k) = Grd%tmask(i,j,k)                                   &
+                 *( Dens%dpotrhodT(i,j,k)*T_prog(index_temp)%eta_smooth(i,j) &
+                   +Dens%dpotrhodS(i,j,k)*T_prog(index_salt)%eta_smooth(i,j))  
+         enddo
+      enddo
+      do j=jsc,jec
+         do i=isc,iec
+            k=Grd%kmt(i,j)
+            if(k > 0) then
+                wrk2(i,j,k) = Grd%tmask(i,j,k)                                    &
+                     *( Dens%dpotrhodT(i,j,k)*T_prog(index_temp)%pbot_smooth(i,j) &
+                       +Dens%dpotrhodS(i,j,k)*T_prog(index_salt)%pbot_smooth(i,j))  
+            endif
+         enddo
+      enddo
+      do k=1,nk
+         do j=jsc,jec
+            do i=isc,iec
+               wrk3(i,j,k) = Grd%tmask(i,j,k)*(wrk1(i,j,k)+wrk2(i,j,k))
+               wrk4(i,j,k) = wrk3(i,j,k)*Dens%rho_dztr_tau(i,j,k)
+            enddo
+         enddo
+      enddo
+      call diagnose_3d(Time, Grd, id_pot_rho_smooth, wrk4(:,:,:))
+  endif
+
 
   ! effects from smooth eta or pbot due to temperature contributions 
   if (id_neut_temp_smooth  > 0 .or. id_neut_temp_smooth_on_nrho  > 0 .or.  &
@@ -4372,6 +4464,28 @@ subroutine watermass_diag(Time, T_prog, T_diag, Dens, Thickness, pme)
       call diagnose_3d_rho(Time, Dens, id_neut_rho_pme_on_nrho, wrk2)
       call diagnose_3d_rho(Time, Dens, id_wdian_rho_pme_on_nrho, wrk3)
       call diagnose_3d_rho(Time, Dens, id_tform_rho_pme_on_nrho, wrk4)
+  endif
+
+
+  ! time tendency for potrho and dianeutral velocity component due
+  ! to pme. formulated here according to flux form of material time derivative.
+  ! note that river contribution is diagnosed in ocean_rivermix.F90.
+  if (id_pot_rho_pme  > 0 ) then
+
+      wrk1(:,:,:) = 0.0
+      wrk2(:,:,:) = 0.0
+
+      k=1
+      do j=jsc,jec
+         do i=isc,iec
+            wrk1(i,j,k) = Grd%tmask(i,j,k)*pme(i,j)                     &
+                 *( Dens%dpotrhodT(i,j,k)*T_prog(index_temp)%tpme(i,j)  &
+                   +Dens%dpotrhodS(i,j,k)*T_prog(index_salt)%tpme(i,j))  
+            wrk2(i,j,k) = wrk1(i,j,k)*Dens%rho_dztr_tau(i,j,k)
+         enddo
+      enddo
+
+      call diagnose_3d(Time, Grd, id_pot_rho_pme, wrk2(:,:,:))
   endif
 
 
@@ -4628,6 +4742,21 @@ subroutine watermass_diag(Time, T_prog, T_diag, Dens, Thickness, pme)
               call diagnose_sum(Time, Grd, Dom, id_eta_tend_frazil_glob, eta_tend, cellarea_r)
           endif
       endif 
+
+      ! frazil contribution to potential density tendency 
+      if (id_pot_rho_frazil  > 0) then
+          wrk1(:,:,:) = 0.0
+          wrk2(:,:,:) = 0.0
+          do k=1,nk
+             do j=jsc,jec
+                do i=isc,iec
+                   wrk1(i,j,k) = Grd%tmask(i,j,k)*dtimer*T_diag(index_frazil)%field(i,j,k)*cp_oceanr*Dens%dpotrhodT(i,j,k)
+                   wrk2(i,j,k) = wrk1(i,j,k)*Dens%rho_dztr_tau(i,j,k)
+                enddo
+             enddo
+          enddo
+          call diagnose_3d(Time, Grd, id_pot_rho_frazil, wrk2(:,:,:))
+      endif
 
   endif ! endif for index_frazil > 0
   
